@@ -4,12 +4,13 @@ let _ = require('lodash/fp')
 
 MongoClient.max_delay = 0
 
-let url = 'mongodb://localhost/contexture-test'
+let url = 'mongodb://app:development@localhost:27017/contexture-test'
+//let url = 'mongodb://root:development@localhost:27017/admin'
 
 module.exports = async ({ collection: collectionName }) => {
-  let db = await MongoClient.connect(url, {})
+  let client = await MongoClient.connect(url, {})
+  const db = client.db("contexture-test")
   let collection = db.collection(collectionName)
-
   let ids = [new ObjectID(), new ObjectID(), new ObjectID()]
 
   let count = 0
@@ -23,12 +24,17 @@ module.exports = async ({ collection: collectionName }) => {
     ids
   )
 
-  await collection.remove({})
+  await collection.deleteMany({})
   await collection.insertMany(docs)
 
-  afterAll(() => collection.remove({}))
+//  afterAll(async () => {
+//    console.info('AFTERALL')
+//    await collection.remove({})
+//    client.close()
+//  })
 
   return {
+    client,
     db,
     ids,
   }
