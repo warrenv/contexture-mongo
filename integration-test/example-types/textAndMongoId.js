@@ -6,17 +6,17 @@ let testSetup = require('../setup')
 
 let schemaName = 'Documents'
 let collection = 'document'
+let clients = []
 
-let x
+const asyncPipe = (...fns) => x => fns.reduce(async (y, f) => f(await y), x)
 
-  afterAll(async () => {
-    console.info('AFTERALL b')
-    await x.close()
-  })
+afterAll(async () => {
+  await asyncPipe(...clients)(()=>{})
+})
 
 let contextureTestSetup = async ({ collection }) => {
   let { client, db, ids } = await testSetup({ collection })
-//  x=client
+  clients.push(() => client.close())
 
   return {
     db,
@@ -47,93 +47,94 @@ describe('Grouping text and mongoId', () => {
         process,
       } = await contextureTestSetup({ collection })
 
-//      await client.close()
+      let dsl = {
+        type: 'group',
+        schema: schemaName,
+        join: 'and',
+        items: [
+          {
+            key: 'text',
+            type: 'text',
+            field: 'code',
+            data: {
+              operator: 'containsWord',
+              value: '22',
+            },
+          },
+          {
+            key: 'specificUser',
+            type: 'mongoId',
+            field: '_id',
+            data: {
+              value: id,
+            },
+          },
+          {
+            key: 'results',
+            type: 'results',
+          },
+        ],
+      }
 
-//      let dsl = {
-//        type: 'group',
-//        schema: schemaName,
-//        join: 'and',
-//        items: [
-//          {
-//            key: 'text',
-//            type: 'text',
-//            field: 'code',
-//            data: {
-//              operator: 'containsWord',
-//              value: '22',
-//            },
-//          },
-//          {
-//            key: 'specificUser',
-//            type: 'mongoId',
-//            field: '_id',
-//            data: {
-//              value: id,
-//            },
-//          },
-//          {
-//            key: 'results',
-//            type: 'results',
-//          },
-//        ],
-//      }
-//
-//      let result = await process(dsl, { debug: true })
-//      let response = _.last(result.items).context.response
-//
-//      expect(response.totalRecords).toBe(3)
-//      expect(response.results[0]._id.toString()).toBe(id.toString())
+      let result = await process(dsl, { debug: true })
+      let response = _.last(result.items).context.response
+
+      expect(response.totalRecords).toBe(3)
+      expect(response.results[0]._id.toString()).toBe(id.toString())
     } catch (err) {
       expect(err).toBe(false)
     }
   })
 
-//  it('should work with populate', async () => {
-//    let {
-//      ids: [id, id2],
-//      process,
-//    } = await contextureTestSetup({ collection })
-//    let dsl = {
-//      type: 'group',
-//      schema: schemaName,
-//      join: 'and',
-//      items: [
-//        {
-//          key: 'text',
-//          type: 'text',
-//          field: 'code',
-//          data: {
-//            operator: 'containsWord',
-//            value: '22',
-//          },
-//        },
-//        {
-//          key: 'specificUser',
-//          type: 'mongoId',
-//          field: '_id',
-//          data: {
-//            value: id,
-//          },
-//        },
-//        {
-//          key: 'results',
-//          type: 'results',
-//          config: {
-//            populate: {
-//              child: {
-//                schema: 'Documents',
-//                foreignField: '_id',
-//                localField: 'nextCode',
-//              },
-//            },
-//          },
-//        },
-//      ],
-//    }
-//    let result = await process(dsl, { debug: true })
-//    let response = _.last(result.items).context.response
-//    expect(response.totalRecords).toBe(3)
-//    expect(response.results[0]._id.toString()).toBe(id.toString())
-//    expect(response.results[0].nextCode.toString()).toBe(id2.toString())
-//  })
+  it('should work with populate', async () => {
+    let {
+      ids: [id, id2],
+      process,
+    } = await contextureTestSetup({ collection })
+
+    let dsl = {
+      type: 'group',
+      schema: schemaName,
+      join: 'and',
+      items: [
+        {
+          key: 'text',
+          type: 'text',
+          field: 'code',
+          data: {
+            operator: 'containsWord',
+            value: '22',
+          },
+        },
+        {
+          key: 'specificUser',
+          type: 'mongoId',
+          field: '_id',
+          data: {
+            value: id,
+          },
+        },
+        {
+          key: 'results',
+          type: 'results',
+          config: {
+            populate: {
+              child: {
+                schema: 'Documents',
+                foreignField: '_id',
+                localField: 'nextCode',
+              },
+            },
+          },
+        },
+      ],
+    }
+
+    let result = await process(dsl, { debug: true })
+    let response = _.last(result.items).context.response
+
+    expect(response.totalRecords).toBe(3)
+    expect(response.results[0]._id.toString()).toBe(id.toString())
+    expect(response.results[0].nextCode.toString()).toBe(id2.toString())
+  })
 })
